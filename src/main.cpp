@@ -38,7 +38,7 @@ unsigned status;
 
  
 /* filas (queues) */
-QueueHandle_t xQueue_LCD, xQueue_LED;
+QueueHandle_t xQueue_LCD, xQueue_LED, xQueue_SENSOR;
  
 /* semaforos utilizados */
 SemaphoreHandle_t xSerial_semaphore;
@@ -65,6 +65,7 @@ void setup() {
   /* Criação das filas (queues) */ 
   xQueue_LCD = xQueueCreate( 1, sizeof( float ) );
   xQueue_LED = xQueueCreate( 1, sizeof( float ) );
+  xQueue_SENSOR = xQueueCreate( 1, sizeof( float ) );
   
  
   /* Criação dos semaforos */
@@ -82,7 +83,7 @@ void setup() {
     ,  "sensor"                     /* Nome (para fins de debug, se necessário) */
     ,  128                          /* Tamanho da stack (em words) reservada para essa tarefa */
     ,  NULL                         /* Parametros passados (nesse caso, não há) */
-    ,  1                           /* Prioridade */
+    ,  2                            /* Prioridade */
     ,  NULL );                      /* Handle da tarefa, opcional (nesse caso, não há) */
  
   xTaskCreate(
@@ -100,15 +101,11 @@ void setup() {
  
  
 
-
-
 void loop()
 {
   /* Tudo é executado nas tarefas. Há nada a ser feito aqui. */
 }
  
-
-
 
 
 /* --------------------------------------------------*/
@@ -118,8 +115,7 @@ void loop()
 void task_sensor( void *pvParameters )
 {
     (void) pvParameters;
-    UBaseType_t uxHighWaterMark;
-    //float pressure = 0.0;
+    float pressure = 0.0;
     float temperatura_lida = 0.0;
     
     while(1)
@@ -136,6 +132,7 @@ void task_sensor( void *pvParameters )
           bmp_pressure->getEvent(&pressure_event);  
 
           temperatura_lida = temp_event.temperature;
+          temperatura_lida = temp_event.temperature;
              
         /* Envia TEMPERATURA para as tarefas a partir de filas */
         xQueueOverwrite(xQueue_LCD, (void *)&temperatura_lida);
@@ -144,13 +141,7 @@ void task_sensor( void *pvParameters )
         /* Espera um segundo */
         vTaskDelay( 100 / portTICK_PERIOD_MS ); 
  
-        /* Para fins de teste de ocupação de stack, printa na serial o high water mark */
-        xSemaphoreTake(xSerial_semaphore, portMAX_DELAY );
-        uxHighWaterMark = uxTaskGetStackHighWaterMark( NULL );
-        Serial.print("task_sensor high water mark (words): ");
-        Serial.println(uxHighWaterMark);
-        Serial.println("---");
-        xSemaphoreGive(xSerial_semaphore);
+        
     }
 }
  
@@ -160,8 +151,7 @@ void task_lcd( void *pvParameters )
 {
     (void) pvParameters;
     float temp_rcv = 0.0;
-    UBaseType_t uxHighWaterMark;
- 
+     
     while(1)
     {        
         /* Espera até algo ser recebido na queue */
@@ -174,12 +164,6 @@ void task_lcd( void *pvParameters )
         lcd.setCursor(12,1);
         lcd.print("T[C]");
  
-        /* Para fins de teste de ocupação de stack, printa na serial o high water mark */
-        xSemaphoreTake(xSerial_semaphore, portMAX_DELAY );
-        uxHighWaterMark = uxTaskGetStackHighWaterMark( NULL );
-        Serial.print("task_lcd high water mark (words): ");
-        Serial.println(uxHighWaterMark);
-        Serial.println("---");
-        xSemaphoreGive(xSerial_semaphore);
+        
     }  
 }
